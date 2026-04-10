@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Indoor Air Quality Simulator</title>
+<style>
+  :root {
+    --bg-primary: #ffffff;
+    --bg-secondary: #f4f4f0;
+    --bg-tertiary: #ebebе6;
+    --text-primary: #1a1a1a;
+    --text-secondary: #666660;
+    --text-tertiary: #999993;
+    --border-light: rgba(0,0,0,0.1);
+    --border-mid: rgba(0,0,0,0.18);
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --info-bg: #e6f1fb;
+    --info-text: #0c447c;
+    --info-border: rgba(24,95,165,0.35);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg-primary: #1e1e1e;
+      --bg-secondary: #2a2a2a;
+      --bg-tertiary: #333333;
+      --text-primary: #e8e8e2;
+      --text-secondary: #a0a09a;
+      --text-tertiary: #70706a;
+      --border-light: rgba(255,255,255,0.1);
+      --border-mid: rgba(255,255,255,0.18);
+      --info-bg: #0c2a44;
+      --info-text: #85b7eb;
+      --info-border: rgba(55,138,221,0.35);
+    }
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    padding: 1.5rem;
+    max-width: 720px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  h1 { font-size: 20px; font-weight: 500; margin-bottom: 4px; }
+  .subtitle { font-size: 13px; color: var(--text-secondary); margin-bottom: 1.5rem; }
+  .panel {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-lg);
+    padding: 1rem 1.25rem;
+    margin-bottom: 12px;
+  }
+  .row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .row:last-child { margin-bottom: 0; }
+  .row label { font-size: 13px; color: var(--text-secondary); min-width: 130px; }
+  .row input[type=range] {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border-mid);
+    outline: none;
+    cursor: pointer;
+  }
+  .row input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: var(--text-primary);
+    cursor: pointer;
+  }
+  .row input[type=range]::-moz-range-thumb {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: var(--text-primary);
+    cursor: pointer;
+    border: none;
+  }
+  .row .val { font-size: 13px; font-weight: 500; min-width: 115px; text-align: right; color: var(--text-primary); }
+  .btn-row { display: flex; gap: 8px; margin-bottom: 12px; }
+  button {
+    background: transparent;
+    border: 0.5px solid var(--border-mid);
+    border-radius: var(--radius-md);
+    padding: 6px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    color: var(--text-primary);
+    font-family: inherit;
+    transition: background 0.15s;
+  }
+  button:hover { background: var(--bg-secondary); }
+  button.on { background: var(--info-bg); color: var(--info-text); border-color: var(--info-border); }
+  .elapsed { font-size: 12px; color: var(--text-secondary); margin-bottom: 8px; }
+  canvas {
+    width: 100%;
+    height: 190px;
+    border-radius: var(--radius-md);
+    border: 0.5px solid var(--border-light);
+    margin-bottom: 12px;
+    display: block;
+    background: transparent;
+  }
+  .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; margin-bottom: 12px; }
+  .metric { background: var(--bg-secondary); border-radius: var(--radius-md); padding: 0.75rem 1rem; }
+  .metric .ml { font-size: 11px; color: var(--text-secondary); margin-bottom: 4px; }
+  .metric .mv { font-size: 20px; font-weight: 500; color: var(--text-primary); }
+  .metric .mu { font-size: 11px; color: var(--text-secondary); }
+  .tag { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: var(--radius-md); font-weight: 500; margin-top: 4px; }
+  .tg { background:#EAF3DE; color:#3B6D11; }
+  .tm { background:#FAEEDA; color:#854F0B; }
+  .tb { background:#FCEBEB; color:#A32D2D; }
+  .tv { background:#F5C4B3; color:#993C1D; }
+  .mw { margin-bottom: 6px; }
+  .mrow { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary); margin-bottom: 3px; }
+  .mbar { height: 12px; border-radius: 6px; background: var(--bg-primary); border: 0.5px solid var(--border-light); overflow: hidden; }
+  .mfill { height: 100%; border-radius: 6px; transition: width 0.3s, background 0.3s; }
+  .status-label { font-size: 11px; color: var(--text-secondary); margin-bottom: 4px; }
+  .status-text { font-size: 14px; color: var(--text-primary); }
+  .footnote { font-size: 11px; color: var(--text-tertiary); margin-top: 12px; line-height: 1.6; }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 8px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-secondary); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+</style>
+</head>
+<body>
+
+<h1>Indoor air quality simulator</h1>
+<p class="subtitle">Visualising the invisible accumulation of CO₂, human VOCs, and paraffin candle particulates in enclosed spaces.</p>
+
+<div class="panel">
+  <div class="row"><label>Room size</label><input type="range" min="1" max="5" step="1" id="slRoom" value="2"><span class="val" id="lblRoom">Small (30 m³)</span></div>
+  <div class="row"><label>Occupants</label><input type="range" min="1" max="8" step="1" id="slPeople" value="2"><span class="val" id="lblPeople">2</span></div>
+  <div class="row"><label>Paraffin candles</label><input type="range" min="0" max="10" step="1" id="slCandles" value="0"><span class="val" id="lblCandles">0</span></div>
+  <div class="row"><label>Ventilation</label><input type="range" min="0" max="6" step="1" id="slVent" value="2"><span class="val" id="lblVent">Typical</span></div>
+</div>
+
+<div class="btn-row">
+  <button id="btnRun" class="on">Running</button>
+  <button id="btnReset">Reset room</button>
+</div>
+<div class="elapsed" id="lblElapsed">Time elapsed: 0 min</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:rgba(90,190,90,0.8);"></div>CO₂</div>
+  <div class="legend-item"><div class="legend-dot" style="background:rgba(255,155,40,0.8);"></div>VOCs</div>
+  <div class="legend-item"><div class="legend-dot" style="background:rgba(200,55,30,0.8);"></div>PM2.5 / acrolein</div>
+</div>
+
+<canvas id="simCanvas"></canvas>
+
+<div class="grid3">
+  <div class="metric"><div class="ml">CO₂</div><div class="mv" id="vCO2">420</div><div class="mu">ppm</div><div id="tCO2" class="tag tg">Outdoor baseline</div></div>
+  <div class="metric"><div class="ml">VOCs</div><div class="mv" id="vVOC">5</div><div class="mu">µg/m³</div><div id="tVOC" class="tag tg">Baseline</div></div>
+  <div class="metric"><div class="ml">PM2.5</div><div class="mv" id="vPM">0.0</div><div class="mu">µg/m³</div><div id="tPM" class="tag tg">None</div></div>
+</div>
+
+<div class="panel">
+  <div class="mw"><div class="mrow"><span>CO₂ load</span><span id="pCO2">0%</span></div><div class="mbar"><div class="mfill" id="bCO2" style="width:2%;background:#3B6D11;"></div></div></div>
+  <div class="mw"><div class="mrow"><span>VOC burden</span><span id="pVOC">0%</span></div><div class="mbar"><div class="mfill" id="bVOC" style="width:0%;background:#854F0B;"></div></div></div>
+  <div class="mw"><div class="mrow"><span>Candle PM + acrolein</span><span id="pPM">0%</span></div><div class="mbar"><div class="mfill" id="bPM" style="width:0%;background:#A32D2D;"></div></div></div>
+</div>
+
+<div class="panel">
+  <div class="status-label">Air quality assessment</div>
+  <div id="lblStatus" class="status-text">Outdoor baseline — biologically clean and microbiome-rich.</div>
+</div>
+
+<p class="footnote">
+  Room volumes: Closet 8 m³ | Small 30 m³ | Medium 60 m³ | Large 120 m³ | Hall 300 m³.<br>
+  ACH rates: Sealed 0.05 | Very poor 0.15 | Typical 0.5 | Good 1.5 | One window 4 | Multiple windows 8 | Outdoors 55.<br>
+  Concentration modelled as C = C₀ + (emission/vol)×t with ACH-driven exponential decay toward outdoor baseline.<br>
+  Humans emit ~200 ml CO₂/min at rest; paraffin candles emit PM2.5, acrolein, benzene, toluene on combustion.<br>
+  Values are illustrative order-of-magnitude estimates based on published indoor air quality literature.
+</p>
+
+<script>
+(function () {
+
+  var ROOMS = [
+    { name: 'Closet', vol: 8 },
+    { name: 'Small',  vol: 30 },
+    { name: 'Medium', vol: 60 },
+    { name: 'Large',  vol: 120 },
+    { name: 'Hall',   vol: 300 }
+  ];
+  var VENT_LABELS = ['Sealed','Very poor','Typical','Good','One window open','Multiple windows','Outdoors'];
+  var VENT_ACH    = [0.05, 0.15, 0.5, 1.5, 4, 8, 55];
+  var PERSON_SCALE = [1.0, 0.80, 0.63, 0.50, 0.37];
+
+  var co2 = 420, voc = 5, pm = 0, elapsed = 0, running = true, tick = 0;
+  var particles = [];
+
+  var canvas   = document.getElementById('simCanvas');
+  var ctx      = canvas.getContext('2d');
+  var slRoom   = document.getElementById('slRoom');
+  var slPeople = document.getElementById('slPeople');
+  var slCandles= document.getElementById('slCandles');
+  var slVent   = document.getElementById('slVent');
+
+  function getP() {
+    var ri = parseInt(slRoom.value) - 1;
+    var vi = parseInt(slVent.value);
+    return {
+      room:    ROOMS[ri],
+      roomIdx: ri,
+      people:  parseInt(slPeople.value),
+      candles: parseInt(slCandles.value),
+      ach:     VENT_ACH[vi],
+      ventIdx: vi
+    };
+  }
+
+  function colorFor(lv) {
+    if (lv < 0.25) return '#639922';
+    if (lv < 0.55) return '#BA7517';
+    if (lv < 0.80) return '#D85A30';
+    return '#A32D2D';
+  }
+
+  function applyTag(el, lv, labs) {
+    el.className = 'tag ' + (lv < 0.25 ? 'tg' : lv < 0.55 ? 'tm' : lv < 0.80 ? 'tb' : 'tv');
+    el.textContent = labs[lv < 0.25 ? 0 : lv < 0.55 ? 1 : lv < 0.80 ? 2 : 3];
+  }
+
+  function setBar(barEl, pctEl, lv) {
+    barEl.style.width = Math.max(1, Math.round(lv * 100)) + '%';
+    barEl.style.background = colorFor(lv);
+    pctEl.textContent = Math.round(lv * 100) + '%';
+  }
+
+  function resizeCanvas() {
+    var dpr = window.devicePixelRatio || 1;
+    var w = canvas.offsetWidth;
+    var h = canvas.offsetHeight;
+    canvas.width  = w * dpr;
+    canvas.height = h * dpr;
+    ctx.scale(dpr, dpr);
+  }
+
+  function addParticles(n, type) {
+    var w = canvas.offsetWidth, h = canvas.offsetHeight;
+    var cfgs = {
+      co2: { r: 2.5, c: 'rgba(90,190,90,',  s: 0.38 },
+      voc: { r: 2.0, c: 'rgba(255,155,40,', s: 0.48 },
+      pm:  { r: 1.5, c: 'rgba(200,55,30,',  s: 0.24 }
+    };
+    var cfg = cfgs[type];
+    for (var i = 0; i < n; i++) {
+      particles.push({
+        x: Math.random() * w,
+        y: Math.random() * h,
+        vx: (Math.random() - 0.5) * cfg.s,
+        vy: (Math.random() - 0.5) * cfg.s,
+        r:  cfg.r + Math.random() * 0.8,
+        c:  cfg.c,
+        a:  0.5 + Math.random() * 0.38
+      });
+    }
+  }
+
+  function isDarkMode() {
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  }
+
+  function drawPerson(cx, floorY, scale, dark) {
+    var headR = Math.max(3, Math.round(9  * scale));
+    var bodyW = Math.max(4, Math.round(13 * scale));
+    var bodyH = Math.max(5, Math.round(22 * scale));
+    var headCY = floorY - bodyH - headR;
+    ctx.fillStyle = dark ? 'rgba(160,160,160,0.65)' : 'rgba(80,80,80,0.6)';
+    ctx.beginPath();
+    ctx.arc(cx, headCY, headR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillRect(Math.round(cx - bodyW / 2), floorY - bodyH, bodyW, bodyH);
+  }
+
+  function drawFrame() {
+    var w = canvas.offsetWidth, h = canvas.offsetHeight;
+    ctx.clearRect(0, 0, w, h);
+    var p = getP();
+    var dark = isDarkMode();
+
+    ctx.fillStyle = p.ventIdx === 6
+      ? (dark ? 'rgba(22,42,68,0.55)' : 'rgba(190,222,255,0.42)')
+      : (dark ? 'rgba(36,36,36,0.45)' : 'rgba(241,241,237,0.6)');
+    ctx.fillRect(0, 0, w, h);
+
+    if (p.ventIdx === 6) {
+      ctx.fillStyle = dark ? 'rgba(80,130,205,0.2)' : 'rgba(155,205,255,0.28)';
+      for (var ci = 0; ci < 5; ci++) {
+        var cx2 = (ci + 0.5) * w / 5;
+        var cy2 = h * 0.27 + Math.sin(tick * 0.017 + ci * 1.2) * 7;
+        ctx.beginPath();
+        ctx.ellipse(cx2, cy2, 22, 11, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    var floorY = h - 12;
+    var nc = Math.min(p.candles, 10);
+    for (var i = 0; i < nc; i++) {
+      var cx = nc === 1 ? w * 0.5 : 18 + i * (w - 36) / (nc - 1);
+      ctx.fillStyle = '#EEC96A';
+      ctx.fillRect(cx - 3, floorY - 16, 6, 16);
+      var flicker = Math.sin(tick * 0.19 + i * 1.5) * 1.5;
+      ctx.fillStyle = 'rgba(255,138,18,0.92)';
+      ctx.beginPath();
+      ctx.ellipse(cx, floorY - 20 + flicker, 3, 6, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    var pscale = PERSON_SCALE[p.roomIdx];
+    var np = Math.min(p.people, 8);
+    for (var j = 0; j < np; j++) {
+      var px = np === 1 ? w / 2 : 36 + j * (w - 72) / (np - 1);
+      drawPerson(px, floorY, pscale, dark);
+    }
+
+    for (var k = 0; k < particles.length; k++) {
+      var pt = particles[k];
+      pt.x += pt.vx; pt.y += pt.vy;
+      if (pt.x < 0 || pt.x > w) pt.vx *= -1;
+      if (pt.y < 0 || pt.y > h) pt.vy *= -1;
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, pt.r, 0, Math.PI * 2);
+      ctx.fillStyle = pt.c + pt.a + ')';
+      ctx.fill();
+    }
+  }
+
+  function applyCO2Tag(el, ppm) {
+    var cls, label;
+    if (ppm < 450) {
+      cls = 'tg'; label = 'Healthy outdoor air';
+    } else if (ppm < 700) {
+      cls = 'tg'; label = 'Acceptable indoor level';
+    } else if (ppm < 1000) {
+      cls = 'tm'; label = 'Stuffiness and odour complaints';
+    } else if (ppm < 2500) {
+      cls = 'tm'; label = 'General drowsiness (ASHRAE limit)';
+    } else if (ppm < 5000) {
+      cls = 'tb'; label = 'Adverse health effects expected';
+    } else {
+      cls = 'tv'; label = 'TWA exposure limit exceeded';
+    }
+    el.className = 'tag ' + cls;
+    el.textContent = label;
+  }
+
+  function step() {
+    if (running) {
+      tick++;
+      var dtMin = 1 / 60;
+      var p = getP();
+      var vol = p.room.vol;
+      var achPerMin = p.ach / 60;
+
+      co2 += p.people * (200e-6 * 1e6) / vol * dtMin - achPerMin * (co2 - 420) * dtMin;
+      if (co2 < 420) co2 = 420;
+
+      voc += p.people * (0.8 / vol) * dtMin - achPerMin * (voc - 5) * dtMin;
+      if (voc < 5) voc = 5;
+
+      pm += p.candles * (0.04 / vol) * dtMin - (achPerMin + 0.005) * pm * dtMin;
+      if (pm < 0) pm = 0;
+
+      elapsed += dtMin;
+
+      if (tick % 4 === 0) {
+        document.getElementById('vCO2').textContent = Math.round(co2);
+        document.getElementById('vVOC').textContent = Math.round(voc);
+        document.getElementById('vPM').textContent  = pm.toFixed(1);
+        document.getElementById('lblElapsed').textContent = 'Time elapsed: ' + Math.round(elapsed) + ' min';
+
+        var co2L = Math.min(1, (co2 - 420) / 3580);
+        var vocL = Math.min(1, (voc - 5)   / 495);
+        var pmL  = Math.min(1, pm / 35);
+
+        setBar(document.getElementById('bCO2'), document.getElementById('pCO2'), co2L);
+        setBar(document.getElementById('bVOC'), document.getElementById('pVOC'), vocL);
+        setBar(document.getElementById('bPM'),  document.getElementById('pPM'),  pmL);
+
+        applyCO2Tag(document.getElementById('tCO2'), co2);
+        applyTag(document.getElementById('tVOC'), vocL, ['Baseline','Odorous','Irritating','Toxic burden']);
+        applyTag(document.getElementById('tPM'),  pmL,  ['None','Elevated','WHO exceedance','Hazardous']);
+
+        var maxL = Math.max(co2L, vocL, pmL);
+        var msg;
+        if (p.ventIdx === 6) {
+          msg = 'Outdoor conditions — ~420 ppm CO₂, phytoncides, negative ions, microbial diversity. Pollutants disperse immediately.';
+        } else if (maxL < 0.08) {
+          msg = 'Near-outdoor baseline. Negligible accumulation — ventilation is adequate for current occupancy.';
+        } else if (maxL < 0.3) {
+          msg = 'Mild accumulation. Detectable VOC burden (isoprene, acetone from respiration and skin). CO₂ rising — ventilate if prolonged.';
+        } else if (maxL < 0.55) {
+          msg = 'Moderate pollution. CO₂ suppressing alertness. VOC mix includes indole, skatole, trimethylamine. Open a window.';
+        } else if (maxL < 0.8) {
+          msg = 'High pollution load. CO₂ impairs cognitive performance (Satish et al. 2012). Candle acrolein and benzene approaching irritant thresholds.';
+        } else {
+          msg = 'Hazardous accumulation. Sedative CO₂ levels. PM2.5 exceeds WHO 24-hr guideline (15 µg/m³). Chronic exposure linked to cardiovascular and neurological damage.';
+        }
+        document.getElementById('lblStatus').textContent = msg;
+
+        var tgt = Math.round(co2L * 40) + Math.round(vocL * 60) + Math.round(pmL * 80);
+        var types = ['co2','voc','pm'];
+        while (particles.length < tgt) addParticles(1, types[Math.floor(Math.random() * 3)]);
+        while (particles.length > tgt + 12) particles.shift();
+      }
+    }
+
+    drawFrame();
+    requestAnimationFrame(step);
+  }
+
+  document.getElementById('btnRun').addEventListener('click', function () {
+    running = !running;
+    this.textContent = running ? 'Running' : 'Paused';
+    this.className = running ? 'on' : '';
+  });
+
+  document.getElementById('btnReset').addEventListener('click', function () {
+    co2 = 420; voc = 5; pm = 0; elapsed = 0; particles = [];
+  });
+
+  slRoom.addEventListener('input', function () {
+    var r = ROOMS[parseInt(this.value) - 1];
+    document.getElementById('lblRoom').textContent = r.name + ' (' + r.vol + ' m³)';
+  });
+  slPeople.addEventListener('input',  function () { document.getElementById('lblPeople').textContent  = this.value; });
+  slCandles.addEventListener('input', function () { document.getElementById('lblCandles').textContent = this.value; });
+  slVent.addEventListener('input',    function () { document.getElementById('lblVent').textContent    = VENT_LABELS[parseInt(this.value)]; });
+
+  window.addEventListener('resize', function () {
+    resizeCanvas();
+    particles = [];
+  });
+
+  resizeCanvas();
+  requestAnimationFrame(step);
+
+})();
+</script>
+</body>
+</html>
