@@ -110,7 +110,7 @@ function applyCO2Tag(el,ppm){
   var cls,label;
   if(ppm<450){cls='tg';label='Healthy outdoor air';}
   else if(ppm<700){cls='tg';label='Acceptable indoor level';}
-  else if(ppm<1000){cls='tm';label='Stuffiness and odour complaints';}
+  else if(ppm<1000){cls='tm';label='Stuffiness and odor complaints';}
   else if(ppm<2500){cls='tm';label='General drowsiness — ASHRAE limit';}
   else if(ppm<5000){cls='tb';label='Adverse health effects expected';}
   else{cls='tv';label='TWA exposure limit exceeded';}
@@ -207,7 +207,7 @@ function step(){
       } else if(co2<700){
         msg='Acceptable indoor level. CO₂ is accumulating but remains within a comfortable and cognitively safe range.';
       } else if(co2<1000){
-        msg='Stuffiness and odour complaints begin in this range. CO₂ is perceptible as a reduction in air freshness. Ventilate soon.';
+        msg='Stuffiness and odor complaints begin in this range. CO₂ is perceptible as a reduction in air freshness. Ventilate soon.';
       } else if(co2<2500){
         msg='Above the ASHRAE 62.1 limit of 1,000 ppm. Research by Satish et al. (2012) found measurable cognitive impairment at these levels — particularly decision-making and problem-solving. Open a window.';
       } else if(co2<5000){
