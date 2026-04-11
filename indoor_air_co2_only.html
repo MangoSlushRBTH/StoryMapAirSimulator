@@ -1,0 +1,253 @@
+
+<style>
+* { box-sizing: border-box; }
+.panel { background: var(--color-background-secondary); border-radius: var(--border-radius-lg); padding: 1rem 1.25rem; margin-bottom: 12px; }
+.pt { font-size: 10px; font-weight: 500; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 10px; }
+.row { display: flex; align-items: center; gap: 10px; margin-bottom: 9px; }
+.row:last-child { margin-bottom: 0; }
+.row label { font-size: 12px; color: var(--color-text-secondary); min-width: 150px; line-height: 1.3; }
+.row input[type=range] { flex: 1; }
+.row .val { font-size: 12px; font-weight: 500; min-width: 110px; text-align: right; color: var(--color-text-primary); }
+.metric { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 1rem 1.25rem; margin-bottom: 12px; }
+.metric .ml { font-size: 11px; color: var(--color-text-secondary); margin-bottom: 4px; }
+.metric .mv { font-size: 36px; font-weight: 500; }
+.metric .mu { font-size: 12px; color: var(--color-text-secondary); }
+.tag { display: inline-block; font-size: 11px; padding: 3px 10px; border-radius: var(--border-radius-md); font-weight: 500; margin-top: 6px; }
+.tg{background:#EAF3DE;color:#3B6D11;} .tm{background:#FAEEDA;color:#854F0B;}
+.tb{background:#FCEBEB;color:#A32D2D;} .tv{background:#F5C4B3;color:#993C1D;}
+.mw { margin-bottom: 8px; }
+.mrow { display: flex; justify-content: space-between; font-size: 12px; color: var(--color-text-secondary); margin-bottom: 4px; }
+.mbar { height: 16px; border-radius: 8px; background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); overflow: hidden; }
+.mfill { height: 100%; border-radius: 8px; transition: width 0.4s, background 0.4s; }
+.btn-row { display: flex; gap: 8px; margin-bottom: 12px; }
+button { background:transparent; border:0.5px solid var(--color-border-secondary); border-radius:var(--border-radius-md); padding:6px 14px; font-size:13px; cursor:pointer; color:var(--color-text-primary); }
+button:hover { background:var(--color-background-secondary); }
+button.on { background:var(--color-background-info); color:var(--color-text-info); border-color:var(--color-border-info); }
+.elapsed { font-size:12px; color:var(--color-text-secondary); margin-bottom:8px; }
+.footnote { font-size:10px; color:var(--color-text-tertiary); margin-top:8px; line-height:1.6; }
+h2 { font-size:16px; font-weight:500; margin:1rem 0 4px; }
+</style>
+
+<h2>Indoor CO₂ simulator</h2>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+  <div class="panel">
+    <div class="pt">Room &amp; ventilation</div>
+    <div class="row"><label>Room size</label><input type="range" min="1" max="5" step="1" id="slRoom" value="2"><span class="val" id="lRoom">Small (30 m³)</span></div>
+    <div class="row"><label>Ventilation</label><input type="range" min="0" max="6" step="1" id="slVent" value="2"><span class="val" id="lVent">Typical</span></div>
+  </div>
+  <div class="panel">
+    <div class="pt">Occupants</div>
+    <div class="row"><label>People</label><input type="range" min="1" max="8" step="1" id="slPeople" value="2"><span class="val" id="lPeople">2</span></div>
+    <div class="row"><label>Activity level</label><input type="range" min="0" max="4" step="1" id="slActivity" value="1"><span class="val" id="lActivity">Seated / resting</span></div>
+  </div>
+</div>
+
+<div class="btn-row">
+  <button id="btnRun" class="on">Running</button>
+  <button id="btnReset">Reset room</button>
+</div>
+<div class="elapsed" id="lblElapsed">Time elapsed: 0 min</div>
+
+<canvas id="simCanvas" style="width:100%;height:190px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-tertiary);margin-bottom:12px;display:block;"></canvas>
+
+<div class="metric">
+  <div class="ml">CO₂ concentration</div>
+  <div class="mv" id="vCO2" style="color:var(--color-text-primary);">420</div>
+  <div class="mu">ppm</div>
+  <div id="tCO2" class="tag tg">Healthy outdoor air</div>
+</div>
+
+<div class="panel">
+  <div class="mw">
+    <div class="mrow"><span>CO₂ load (420 ppm baseline → 4,000 ppm severe)</span><span id="pCO2">0%</span></div>
+    <div class="mbar"><div class="mfill" id="bCO2" style="width:2%;background:#3B6D11;"></div></div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:10px;font-size:10px;text-align:center;color:var(--color-text-tertiary);">
+    <div>420 ppm<br>outdoor</div>
+    <div>700 ppm<br>stuffiness</div>
+    <div>1,000 ppm<br>ASHRAE limit</div>
+    <div>2,500 ppm<br>health effects</div>
+  </div>
+</div>
+
+<div class="panel">
+  <div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:4px;">Assessment</div>
+  <div id="lblStatus" style="font-size:13px;color:var(--color-text-primary);line-height:1.6;"></div>
+</div>
+
+<p class="footnote">CO₂ emission: ~200 ml/min per person at rest, scales with activity level (Guyton & Hall). ACH: Sealed 0.05 | Very poor 0.15 | Typical 0.5 | Good 1.5 | One window 4 | Multiple windows 8 | Outdoors 55. Thresholds: ASHRAE 62.1; Satish et al. (2012); Allen et al. (2016).</p>
+
+<script>
+(function() {
+
+var ROOMS       = [{name:'Closet',vol:8},{name:'Small',vol:30},{name:'Medium',vol:60},{name:'Large',vol:120},{name:'Hall',vol:300}];
+var VENT_LABELS = ['Sealed','Very poor','Typical','Good','One window open','Multiple windows','Outdoors'];
+var VENT_ACH    = [0.05,0.15,0.5,1.5,4,8,55];
+var ACT_LABELS  = ['Asleep','Seated / resting','Light activity','Moderate activity','Vigorous exercise'];
+var ACT_CO2_M   = [0.5,1,1.8,3.5,6];
+var PERSON_SCALE= [1.0,0.80,0.63,0.50,0.37];
+
+var co2=420, elapsed=0, running=true, tick=0;
+var particles=[];
+var canvas=document.getElementById('simCanvas'), ctx=canvas.getContext('2d');
+
+function get(id){return parseInt(document.getElementById(id).value);}
+
+function getP(){
+  var ri=get('slRoom')-1, vi=get('slVent'), ai=get('slActivity');
+  return {room:ROOMS[ri],roomIdx:ri,people:get('slPeople'),ach:VENT_ACH[vi],ventIdx:vi,actMult:ACT_CO2_M[ai]};
+}
+
+function colorFor(lv){
+  if(lv<0.15)return '#639922';
+  if(lv<0.45)return '#BA7517';
+  if(lv<0.75)return '#D85A30';
+  return '#A32D2D';
+}
+
+function applyCO2Tag(el,ppm){
+  var cls,label;
+  if(ppm<450){cls='tg';label='Healthy outdoor air';}
+  else if(ppm<700){cls='tg';label='Acceptable indoor level';}
+  else if(ppm<1000){cls='tm';label='Stuffiness and odour complaints';}
+  else if(ppm<2500){cls='tm';label='General drowsiness — ASHRAE limit';}
+  else if(ppm<5000){cls='tb';label='Adverse health effects expected';}
+  else{cls='tv';label='TWA exposure limit exceeded';}
+  el.className='tag '+cls; el.textContent=label;
+}
+
+function resizeCanvas(){
+  var dpr=window.devicePixelRatio||1;
+  canvas.width=canvas.offsetWidth*dpr;
+  canvas.height=canvas.offsetHeight*dpr;
+  ctx.scale(dpr,dpr);
+}
+
+function addParticles(n){
+  var w=canvas.offsetWidth,h=canvas.offsetHeight;
+  for(var i=0;i<n;i++){
+    particles.push({
+      x:Math.random()*w,y:Math.random()*h,
+      vx:(Math.random()-0.5)*0.38,vy:(Math.random()-0.5)*0.38,
+      r:2+Math.random()*1.5,
+      a:0.4+Math.random()*0.4
+    });
+  }
+}
+
+function drawPerson(cx,floorY,scale,dark){
+  var headR=Math.max(3,Math.round(9*scale));
+  var bodyW=Math.max(4,Math.round(13*scale));
+  var bodyH=Math.max(5,Math.round(22*scale));
+  ctx.fillStyle=dark?'rgba(160,160,160,0.65)':'rgba(80,80,80,0.6)';
+  ctx.beginPath(); ctx.arc(cx,floorY-bodyH-headR,headR,0,Math.PI*2); ctx.fill();
+  ctx.fillRect(Math.round(cx-bodyW/2),floorY-bodyH,bodyW,bodyH);
+}
+
+function drawFrame(){
+  var w=canvas.offsetWidth,h=canvas.offsetHeight;
+  ctx.clearRect(0,0,w,h);
+  var p=getP(), dark=window.matchMedia('(prefers-color-scheme: dark)').matches;
+  ctx.fillStyle=p.ventIdx===6
+    ?(dark?'rgba(22,42,68,0.55)':'rgba(190,222,255,0.42)')
+    :(dark?'rgba(28,28,45,0.6)':'rgba(241,241,237,0.55)');
+  ctx.fillRect(0,0,w,h);
+  if(p.ventIdx===6){
+    ctx.fillStyle=dark?'rgba(80,130,205,0.2)':'rgba(155,205,255,0.25)';
+    for(var ci=0;ci<5;ci++){
+      ctx.beginPath();
+      ctx.ellipse((ci+0.5)*w/5,h*0.27+Math.sin(tick*0.017+ci*1.2)*7,22,11,0,0,Math.PI*2);
+      ctx.fill();
+    }
+  }
+  var floorY=h-12, np=Math.min(p.people,8);
+  for(var j=0;j<np;j++)
+    drawPerson(np===1?w/2:36+j*(w-72)/(np-1),floorY,PERSON_SCALE[p.roomIdx],dark);
+
+  var lv=Math.min(1,(co2-420)/3580);
+  var r=Math.round(lv*200+55), g=Math.round((1-lv)*190+55);
+  for(var k=0;k<particles.length;k++){
+    var pt=particles[k];
+    pt.x+=pt.vx; pt.y+=pt.vy;
+    if(pt.x<0||pt.x>w)pt.vx*=-1;
+    if(pt.y<0||pt.y>h)pt.vy*=-1;
+    ctx.beginPath(); ctx.arc(pt.x,pt.y,pt.r,0,Math.PI*2);
+    ctx.fillStyle='rgba('+r+','+g+',80,'+pt.a+')';
+    ctx.fill();
+  }
+}
+
+function step(){
+  if(running){
+    tick++;
+    var dtMin=1/60;
+    var p=getP(), vol=p.room.vol, achPerMin=p.ach/60;
+    co2 += p.people*(200e-6*1e6*p.actMult)/vol*dtMin - achPerMin*(co2-420)*dtMin;
+    if(co2<420)co2=420;
+    elapsed+=dtMin;
+
+    if(tick%4===0){
+      var lv=Math.min(1,(co2-420)/3580);
+      var col=colorFor(lv);
+
+      document.getElementById('vCO2').textContent=Math.round(co2);
+      document.getElementById('vCO2').style.color=col;
+      document.getElementById('lblElapsed').textContent='Time elapsed: '+Math.round(elapsed)+' min';
+      document.getElementById('bCO2').style.width=Math.max(2,Math.round(lv*100))+'%';
+      document.getElementById('bCO2').style.background=col;
+      document.getElementById('pCO2').textContent=Math.round(lv*100)+'%';
+      applyCO2Tag(document.getElementById('tCO2'),co2);
+
+      var msg;
+      if(p.ventIdx===6){
+        msg='Outdoor conditions — ~420 ppm CO₂, phytoncides, negative ions, microbial diversity. The biological baseline your body evolved for.';
+      } else if(co2<450){
+        msg='Outdoor baseline maintained. Excellent ventilation is keeping CO₂ at atmospheric levels.';
+      } else if(co2<700){
+        msg='Acceptable indoor level. CO₂ is accumulating but remains within a comfortable and cognitively safe range.';
+      } else if(co2<1000){
+        msg='Stuffiness and odour complaints begin in this range. CO₂ is perceptible as a reduction in air freshness. Ventilate soon.';
+      } else if(co2<2500){
+        msg='Above the ASHRAE 62.1 limit of 1,000 ppm. Research by Satish et al. (2012) found measurable cognitive impairment at these levels — particularly decision-making and problem-solving. Open a window.';
+      } else if(co2<5000){
+        msg='Adverse health effects expected. Headache, fatigue and significant cognitive impairment documented at these concentrations. Ventilate immediately.';
+      } else {
+        msg='OSHA/NIOSH 8-hour TWA limit exceeded. Acute physiological effects. Evacuate and ventilate.';
+      }
+      document.getElementById('lblStatus').textContent=msg;
+
+      var tgt=Math.round(lv*80);
+      while(particles.length<tgt)addParticles(1);
+      while(particles.length>tgt+10)particles.shift();
+    }
+  }
+  drawFrame();
+  requestAnimationFrame(step);
+}
+
+var ROOMS_REF=ROOMS;
+var labelMaps=[
+  ['slRoom','lRoom',null,function(v){return ROOMS_REF[v-1].name+' ('+ROOMS_REF[v-1].vol+' m\u00b3)';}],
+  ['slVent','lVent',VENT_LABELS,null],
+  ['slPeople','lPeople',null,function(v){return v;}],
+  ['slActivity','lActivity',ACT_LABELS,null]
+];
+labelMaps.forEach(function(m){
+  document.getElementById(m[0]).addEventListener('input',function(){
+    document.getElementById(m[1]).textContent=m[3]?m[3](parseInt(this.value)):m[2][parseInt(this.value)];
+    particles=[];
+  });
+});
+document.getElementById('btnRun').addEventListener('click',function(){
+  running=!running; this.textContent=running?'Running':'Paused'; this.className=running?'on':'';
+});
+document.getElementById('btnReset').addEventListener('click',function(){
+  co2=420; elapsed=0; particles=[];
+});
+window.addEventListener('resize',function(){resizeCanvas();particles=[];});
+resizeCanvas();
+requestAnimationFrame(step);
+
+})();
+</script>
